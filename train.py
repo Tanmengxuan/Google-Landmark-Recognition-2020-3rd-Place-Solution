@@ -27,9 +27,9 @@ from torch.optim import lr_scheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.backends import cudnn
 
-import apex
-from apex import amp
-from apex.parallel import DistributedDataParallel
+#import apex
+#from apex import amp
+#from apex.parallel import DistributedDataParallel
 
 from dataset import LandmarkDataset, get_df, get_transforms
 from util import global_average_precision_score, GradualWarmupSchedulerV2
@@ -53,7 +53,7 @@ def parse_args():
     parser.add_argument('--n-epochs', type=int, default=15)
     parser.add_argument('--start-from-epoch', type=int, default=1)
     parser.add_argument('--stop-at-epoch', type=int, default=999)
-    parser.add_argument('--use-amp', action='store_false')
+    parser.add_argument('--use-amp', action='store_true')
     parser.add_argument('--DEBUG', action='store_true')
     parser.add_argument('--model-dir', type=str, default='./weights')
     parser.add_argument('--log-dir', type=str, default='./logs')
@@ -211,8 +211,8 @@ def main():
         import gc
         gc.collect()   
 
-    if use_cuda:
-        model = DistributedDataParallel(model, delay_allreduce=True)
+    #if use_cuda:
+    #    model = DistributedDataParallel(model, delay_allreduce=True)
     
     # lr scheduler
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
