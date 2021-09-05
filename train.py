@@ -282,7 +282,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.benchmark = True
         if use_cuda:
             torch.cuda.set_device(args.local_rank)
-            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            #torch.distributed.init_process_group(backend='nccl', init_method='env://')
         cudnn.benchmark = True
 
     main()
