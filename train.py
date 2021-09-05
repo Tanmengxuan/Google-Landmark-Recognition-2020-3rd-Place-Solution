@@ -177,7 +177,7 @@ def main():
     model = ModelClass(args.enet_type, out_dim=out_dim)
     if use_cuda:
         model = model.cuda()
-        model = apex.parallel.convert_syncbn_model(model)
+        #model = apex.parallel.convert_syncbn_model(model)
 
     # loss func
     def criterion(logits_m, target):
