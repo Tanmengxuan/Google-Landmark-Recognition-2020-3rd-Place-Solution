@@ -11,6 +11,7 @@ import geffnet
 from rexnetv1 import ReXNetV1
 from resnest.torch import resnest101
 
+use_cuda = torch.cuda.is_available()
 
 class Swish(torch.autograd.Function):
 
@@ -87,12 +88,18 @@ class ArcFaceLossAdaptiveMargin(nn.modules.Module):
         self.margins = margins
             
     def forward(self, logits, labels, out_dim):
+        #import pdb; pdb.set_trace()
         ms = []
         ms = self.margins[labels.cpu().numpy()]
-        cos_m = torch.from_numpy(np.cos(ms)).float().cuda()
-        sin_m = torch.from_numpy(np.sin(ms)).float().cuda()
-        th = torch.from_numpy(np.cos(math.pi - ms)).float().cuda()
-        mm = torch.from_numpy(np.sin(math.pi - ms) * ms).float().cuda()
+        cos_m = torch.from_numpy(np.cos(ms)).float()
+        sin_m = torch.from_numpy(np.sin(ms)).float()
+        th = torch.from_numpy(np.cos(math.pi - ms)).float()
+        mm = torch.from_numpy(np.sin(math.pi - ms) * ms).float()
+        if use_cuda:
+            cos_m = torch.from_numpy(np.cos(ms)).float().cuda()
+            sin_m = torch.from_numpy(np.sin(ms)).float().cuda()
+            th = torch.from_numpy(np.cos(math.pi - ms)).float().cuda()
+            mm = torch.from_numpy(np.sin(math.pi - ms) * ms).float().cuda()
         labels = F.one_hot(labels, out_dim).float()
         logits = logits.float()
         cosine = logits

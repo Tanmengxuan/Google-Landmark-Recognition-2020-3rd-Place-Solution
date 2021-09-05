@@ -1,10 +1,11 @@
 import pandas as pd
 import pickle
 from sklearn.model_selection import train_test_split, StratifiedKFold
-
+import os
+import argparse
 
 def main():
-    df_train = pd.read_csv('train.csv')
+    df_train = pd.read_csv(os.path.join(args.data_dir, 'train.csv'))
 
     skf = StratifiedKFold(5, shuffle=True, random_state=233)
 
@@ -17,7 +18,10 @@ def main():
     landmark_id2idx = {idx:landmark_id for idx, landmark_id in enumerate(sorted(df_train['landmark_id'].unique()))}
     with open('idx2landmark_id.pkl', 'wb') as fp:
         pickle.dump(landmark_id2idx, fp)
-
+    print('Preprocess Done!')
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--data_dir', type=str, required=True)
+    args = parser.parse_args()
     main()

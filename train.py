@@ -1,3 +1,6 @@
+import sys
+sys.path.append('geffnet-20200820/')
+sys.path.append('ResNeSt-master/')
 import os
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
@@ -33,6 +36,7 @@ from util import global_average_precision_score, GradualWarmupSchedulerV2
 from models import DenseCrossEntropy, Swish_module
 from models import ArcFaceLossAdaptiveMargin, Effnet_Landmark, RexNet20_Landmark, ResNest101_Landmark
 
+use_cuda = torch.cuda.is_available()
 
 def parse_args():
 
@@ -74,9 +78,11 @@ def train_epoch(model, loader, optimizer, criterion):
     model.train()
     train_loss = []
     bar = tqdm(loader)
+    #import pdb; pdb.set_trace()
     for (data, target) in bar:
-
-        data, target = data.cuda(), target.cuda()
+        #import pdb; pdb.set_trace()
+        if use_cuda:
+            data, target = data.cuda(), target.cuda()
         optimizer.zero_grad()
 
         if not args.use_amp:
@@ -87,11 +93,15 @@ def train_epoch(model, loader, optimizer, criterion):
         else:
             logits_m = model(data)
             loss = criterion(logits_m, target)
-            with amp.scale_loss(loss, optimizer) as scaled_loss:
-                scaled_loss.backward()
+            if use_cuda:
+                with amp.scale_loss(loss, optimizer) as scaled_loss:
+                    scaled_loss.backward()
+            else:
+                loss.backward()
             optimizer.step()
 
-        torch.cuda.synchronize()
+        if use_cuda:
+            torch.cuda.synchronize()
             
         loss_np = loss.detach().cpu().numpy()
         train_loss.append(loss_np)
@@ -110,7 +120,8 @@ def val_epoch(model, valid_loader, criterion, get_output=False):
 
     with torch.no_grad():
         for (data, target) in tqdm(valid_loader):
-            data, target = data.cuda(), target.cuda()
+            if use_cuda:
+                data, target = data.cuda(), target.cuda()
 
             logits_m = model(data)
 
@@ -162,9 +173,11 @@ def main():
     valid_loader = torch.utils.data.DataLoader(dataset_valid, batch_size=args.batch_size, num_workers=args.num_workers)
 
     # model
+    #import pdb; pdb.set_trace()
     model = ModelClass(args.enet_type, out_dim=out_dim)
-    model = model.cuda()
-    model = apex.parallel.convert_syncbn_model(model)
+    if use_cuda:
+        model = model.cuda()
+        model = apex.parallel.convert_syncbn_model(model)
 
     # loss func
     def criterion(logits_m, target):
@@ -175,11 +188,15 @@ def main():
     # optimizer
     optimizer = optim.Adam(model.parameters(), lr=args.init_lr)
     if args.use_amp:
-        model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
+        if use_cuda:
+            model, optimizer = amp.initialize(model, optimizer, opt_level="O1")
 
     # load pretrained
     if len(args.load_from) > 0:
-        checkpoint = torch.load(args.load_from,  map_location='cuda:{}'.format(args.local_rank))
+        if use_cuda:
+            checkpoint = torch.load(args.load_from,  map_location='cuda:{}'.format(args.local_rank))
+        else:
+            checkpoint = torch.load(args.load_from)
         state_dict = checkpoint['model_state_dict']
         state_dict = {k[7:] if k.startswith('module.') else k: state_dict[k] for k in state_dict.keys()}    
         if args.train_step==1: 
@@ -194,7 +211,8 @@ def main():
         import gc
         gc.collect()   
 
-    model = DistributedDataParallel(model, delay_allreduce=True)
+    if use_cuda:
+        model = DistributedDataParallel(model, delay_allreduce=True)
     
     # lr scheduler
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
@@ -207,9 +225,11 @@ def main():
 
         print(time.ctime(), 'Epoch:', epoch)
         scheduler_warmup.step(epoch - 1)
-
-        train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-        train_sampler.set_epoch(epoch)
+        if use_cuda:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+            train_sampler.set_epoch(epoch)
+        else:
+            train_sampler = None
 
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
                                                   shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)        
@@ -260,8 +280,9 @@ if __name__ == '__main__':
 
     if args.CUDA_VISIBLE_DEVICES != '-1':
         torch.backends.cudnn.benchmark = True
-        torch.cuda.set_device(args.local_rank)
-        torch.distributed.init_process_group(backend='nccl', init_method='env://')
+        if use_cuda:
+            torch.cuda.set_device(args.local_rank)
+            torch.distributed.init_process_group(backend='nccl', init_method='env://')
         cudnn.benchmark = True
 
     main()
