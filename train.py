@@ -225,11 +225,12 @@ def main():
 
         print(time.ctime(), 'Epoch:', epoch)
         scheduler_warmup.step(epoch - 1)
-        if use_cuda:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-            train_sampler.set_epoch(epoch)
-        else:
-            train_sampler = None
+        #if use_cuda:
+        #    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+        #    train_sampler.set_epoch(epoch)
+        #else:
+        #    train_sampler = None
+        train_sampler = None
 
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
                                                   shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)        
