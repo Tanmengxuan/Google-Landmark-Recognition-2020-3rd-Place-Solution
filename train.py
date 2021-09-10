@@ -157,6 +157,7 @@ def main():
     df, out_dim = get_df(args.kernel_type, args.data_dir, args.train_step)
     print(f"out_dim = {out_dim}")
 
+    df = df.sample(frac=0.8, random_state=66).reset_index(drop=True)
     # get adaptive margin
     tmp = np.sqrt(1 / np.sqrt(df['landmark_id'].value_counts().sort_index().values))
     margins = (tmp - tmp.min()) / (tmp.max() - tmp.min()) * 0.45 + 0.05
