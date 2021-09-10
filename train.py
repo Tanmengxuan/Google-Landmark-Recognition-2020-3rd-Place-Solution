@@ -102,7 +102,7 @@ def train_epoch(model, loader, optimizer, criterion):
 
         if use_cuda:
             torch.cuda.synchronize()
-            
+
         loss_np = loss.detach().cpu().numpy()
         train_loss.append(loss_np)
         smooth_loss = sum(train_loss[-100:]) / min(len(train_loss), 100)
@@ -198,22 +198,28 @@ def main():
         else:
             checkpoint = torch.load(args.load_from)
         state_dict = checkpoint['model_state_dict']
-        state_dict = {k[7:] if k.startswith('module.') else k: state_dict[k] for k in state_dict.keys()}    
-        if args.train_step==1: 
+        state_dict = {k[7:] if k.startswith('module.') else k: state_dict[k] for k in state_dict.keys()}
+        if args.train_step==1:
             del state_dict['metric_classify.weight']
             model.load_state_dict(state_dict, strict=False)
         else:
-            model.load_state_dict(state_dict, strict=True)        
-#             if 'optimizer_state_dict' in checkpoint:
-#                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])   
+            model.load_state_dict(state_dict, strict=True)
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'epoch' in checkpoint:
+               args.start_from_epoch = checkpoint['epoch'] + 1
+            if 'gap_m' in checkpoint:
+                checkpoint_gap_m = checkpoint['gap_m']
+            else:
+                checkpoint_gap_m = 0.3476 #temp
         del checkpoint, state_dict
         torch.cuda.empty_cache()
         import gc
-        gc.collect()   
+        gc.collect()
 
     #if use_cuda:
     #    model = DistributedDataParallel(model, delay_allreduce=True)
-    
+
     # lr scheduler
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
     scheduler_warmup = GradualWarmupSchedulerV2(optimizer, multiplier=10, total_epoch=1, after_scheduler=scheduler_cosine)
@@ -221,6 +227,11 @@ def main():
     # train & valid loop
     gap_m_max = 0.
     model_file = os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}.pth')
+    gap_m_best = -1
+    if len(args.load_from) > 0:
+        gap_m_best = checkpoint_gap_m
+        print(f" \n Load gap_m: {gap_m_best}\n")
+
     for epoch in range(args.start_from_epoch, args.n_epochs+1):
 
         print(time.ctime(), 'Epoch:', epoch)
@@ -233,14 +244,14 @@ def main():
         train_sampler = None
 
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
-                                                  shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)        
+                                                  shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
 
         train_loss = train_epoch(model, train_loader, optimizer, criterion)
         val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
 
         if args.local_rank == 0:
             content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, acc_m: {(acc_m):.6f}, gap_m: {(gap_m):.6f}.'
-            print(content)
+            print(f'\n{content}\n')
             with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
                 appender.write(content + '\n')
 
@@ -249,18 +260,29 @@ def main():
                         'epoch': epoch,
                         'model_state_dict': model.state_dict(),
                         'optimizer_state_dict': optimizer.state_dict(),
-                        }, model_file)            
+                        'gap_m': gap_m,
+                        }, model_file)
             gap_m_max = gap_m
+
+            if gap_m > gap_m_best:
+                print('\n Saving Best Model...\n')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'gap_m': gap_m,
+                }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_best.pth'))
+                gap_m_best = gap_m
 
         if epoch == args.stop_at_epoch:
             print(time.ctime(), 'Training Finished!')
             break
 
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-    }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_final.pth'))
+    #torch.save({
+    #    'epoch': epoch,
+    #    'model_state_dict': model.state_dict(),
+    #    'optimizer_state_dict': optimizer.state_dict(),
+    #}, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_final.pth'))
 
 
 if __name__ == '__main__':
