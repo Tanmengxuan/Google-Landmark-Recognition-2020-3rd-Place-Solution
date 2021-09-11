@@ -210,9 +210,9 @@ def main():
             if 'epoch' in checkpoint:
                args.start_from_epoch = checkpoint['epoch'] + 1
             if 'gap_m' in checkpoint:
-                checkpoint_gap_m = checkpoint['gap_m']
+                checkpoint_gap_m_best = checkpoint['gap_m_best']
             else:
-                checkpoint_gap_m = 0.3476 #temp
+                checkpoint_gap_m_best = 0.3476 #temp
         del checkpoint, state_dict
         torch.cuda.empty_cache()
         import gc
@@ -230,8 +230,8 @@ def main():
     model_file = os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}.pth')
     gap_m_best = -1
     if len(args.load_from) > 0:
-        gap_m_best = checkpoint_gap_m
-        print(f" \n Load gap_m: {gap_m_best}\n")
+        gap_m_best = checkpoint_gap_m_best
+        print(f" \n Load gap_m_best: {gap_m_best}\n")
 
     for epoch in range(args.start_from_epoch, args.n_epochs+1):
 
@@ -256,24 +256,26 @@ def main():
             with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
                 appender.write(content + '\n')
 
-            print('gap_m_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
-            torch.save({
-                        'epoch': epoch,
-                        'model_state_dict': model.state_dict(),
-                        'optimizer_state_dict': optimizer.state_dict(),
-                        'gap_m': gap_m,
-                        }, model_file)
-            gap_m_max = gap_m
-
             if gap_m > gap_m_best:
+                gap_m_best = gap_m
                 print('\n Saving Best Model...\n')
                 torch.save({
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
                     'optimizer_state_dict': optimizer.state_dict(),
                     'gap_m': gap_m,
+                    'gap_m_best': gap_m_best,
                 }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_best.pth'))
-                gap_m_best = gap_m
+
+            print('gap_m_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
+            torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'gap_m': gap_m,
+                    'gap_m_best': gap_m_best,
+                    }, model_file)
+            gap_m_max = gap_m
 
         if epoch == args.stop_at_epoch:
             print(time.ctime(), 'Training Finished!')
