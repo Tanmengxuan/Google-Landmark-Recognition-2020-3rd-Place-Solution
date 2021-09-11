@@ -116,7 +116,8 @@ class Effnet_Landmark(nn.Module):
 
     def __init__(self, enet_type, out_dim):
         super(Effnet_Landmark, self).__init__()
-        self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=True)
+        self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=False)
+
         self.feat = nn.Linear(self.enet.classifier.in_features, 512)
         self.swish = Swish_module()
         self.metric_classify = ArcMarginProduct_subcenter(512, out_dim)
@@ -150,7 +151,10 @@ class RexNet20_Landmark(nn.Module):
         return self.enet(x)
 
     def forward(self, x):
+        len_x = len(x)
         x = self.extract(x)
+        if len_x == 1:
+            x = x.view(1, len(x))
         logits_m = self.metric_classify(self.swish(self.feat(x)))
         return logits_m
         
