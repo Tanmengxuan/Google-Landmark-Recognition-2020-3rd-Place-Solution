@@ -116,7 +116,7 @@ class Effnet_Landmark(nn.Module):
 
     def __init__(self, enet_type, out_dim):
         super(Effnet_Landmark, self).__init__()
-        self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=False)
+        self.enet = geffnet.create_model(enet_type.replace('-', '_'), pretrained=True)
 
         self.feat = nn.Linear(self.enet.classifier.in_features, 512)
         self.swish = Swish_module()
