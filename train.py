@@ -236,7 +236,13 @@ def main():
     for epoch in range(args.start_from_epoch, args.n_epochs+1):
 
         print(time.ctime(), 'Epoch:', epoch)
-        scheduler_warmup.step(epoch - 1)
+        if len(args.load_from) > 0 and epoch == args.start_from_epoch:
+            scheduler_warmup.step(epoch - 1)
+            scheduler_warmup.step(epoch - 1) # Hack to control scheduler
+        else:
+            scheduler_warmup.step(epoch - 1)
+        print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
+        print(f"\nstep_Count: {optimizer._step_count}\n")
         #if use_cuda:
         #    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
         #    train_sampler.set_epoch(epoch)
