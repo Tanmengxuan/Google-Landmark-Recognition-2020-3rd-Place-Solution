@@ -209,7 +209,7 @@ def main():
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if 'epoch' in checkpoint:
                args.start_from_epoch = checkpoint['epoch'] + 1
-            if 'gap_m' in checkpoint:
+            if 'gap_m_best' in checkpoint:
                 checkpoint_gap_m_best = checkpoint['gap_m_best']
             else:
                 checkpoint_gap_m_best = 0.3476 #temp
