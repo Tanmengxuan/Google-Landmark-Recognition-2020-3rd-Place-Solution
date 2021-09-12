@@ -1,5 +1,5 @@
 albumentations==0.4.6
-warmup_scheduler==0.3.2
-pandas==0.24.2
+warmup_scheduler
+pandas
 numpy==1.18.5
 scikit_learn==0.23.2
