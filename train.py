@@ -27,9 +27,10 @@ from torch.optim import lr_scheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.backends import cudnn
 
-import apex
-from apex import amp
-from apex.parallel import DistributedDataParallel
+#import apex
+#from apex import amp
+#from apex.parallel import DistributedDataParallel
+from torch.nn.parallel import DistributedDataParallel
 
 from dataset import LandmarkDataset, get_df, get_transforms
 from util import global_average_precision_score, GradualWarmupSchedulerV2
@@ -178,7 +179,7 @@ def main():
     model = ModelClass(args.enet_type, out_dim=out_dim)
     if use_cuda:
         model = model.cuda()
-        model = apex.parallel.convert_syncbn_model(model)
+        #model = apex.parallel.convert_syncbn_model(model)
 
     # loss func
     def criterion(logits_m, target):
