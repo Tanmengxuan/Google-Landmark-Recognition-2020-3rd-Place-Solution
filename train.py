@@ -60,6 +60,7 @@ def parse_args():
     parser.add_argument('--CUDA_VISIBLE_DEVICES', type=str, default='0,1,2,3,4,5,6,7')
     parser.add_argument('--fold', type=int, default=0)
     parser.add_argument('--load-from', type=str, default='')
+    parser.add_argument('--resume_train', action='store_true')
     args, _ = parser.parse_known_args()
     return args
 
@@ -206,14 +207,16 @@ def main():
             model.load_state_dict(state_dict, strict=False)
         else:
             model.load_state_dict(state_dict, strict=True)
-            if 'optimizer_state_dict' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-            if 'epoch' in checkpoint:
-               args.start_from_epoch = checkpoint['epoch'] + 1
-            if 'gap_m_best' in checkpoint:
-                checkpoint_gap_m_best = checkpoint['gap_m_best']
-            else:
-                checkpoint_gap_m_best = 0.3476 #temp
+            if args.resume_train:
+                print('\n RESUME TRAIN... \n')
+                if 'optimizer_state_dict' in checkpoint:
+                    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+                if 'epoch' in checkpoint:
+                   args.start_from_epoch = checkpoint['epoch'] + 1
+                if 'gap_m_best' in checkpoint:
+                    checkpoint_gap_m_best = checkpoint['gap_m_best']
+                else:
+                    checkpoint_gap_m_best = 0.3476 #temp
         del checkpoint, state_dict
         torch.cuda.empty_cache()
         import gc
