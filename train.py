@@ -27,9 +27,9 @@ from torch.optim import lr_scheduler
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.backends import cudnn
 
-#import apex
-#from apex import amp
-#from apex.parallel import DistributedDataParallel
+import apex
+from apex import amp
+from apex.parallel import DistributedDataParallel
 
 from dataset import LandmarkDataset, get_df, get_transforms
 from util import global_average_precision_score, GradualWarmupSchedulerV2
@@ -178,7 +178,7 @@ def main():
     model = ModelClass(args.enet_type, out_dim=out_dim)
     if use_cuda:
         model = model.cuda()
-        #model = apex.parallel.convert_syncbn_model(model)
+        model = apex.parallel.convert_syncbn_model(model)
 
     # loss func
     def criterion(logits_m, target):
@@ -218,8 +218,8 @@ def main():
         import gc
         gc.collect()
 
-    #if use_cuda:
-    #    model = DistributedDataParallel(model, delay_allreduce=True)
+    if use_cuda:
+        model = DistributedDataParallel(model, delay_allreduce=True)
 
     # lr scheduler
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
@@ -243,12 +243,12 @@ def main():
             scheduler_warmup.step(epoch - 1)
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
         print(f"\nstep_Count: {optimizer._step_count}\n")
-        #if use_cuda:
-        #    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-        #    train_sampler.set_epoch(epoch)
-        #else:
-        #    train_sampler = None
-        train_sampler = None
+        if use_cuda:
+            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+            train_sampler.set_epoch(epoch)
+        else:
+            train_sampler = None
+        #train_sampler = None
 
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
                                                   shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
@@ -314,7 +314,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.benchmark = True
         if use_cuda:
             torch.cuda.set_device(args.local_rank)
-            #torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            torch.distributed.init_process_group(backend='nccl', init_method='env://')
         cudnn.benchmark = True
 
     main()
