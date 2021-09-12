@@ -245,7 +245,7 @@ def main():
             scheduler_warmup.step(epoch - 1) # Hack to control scheduler
         else:
             scheduler_warmup.step(epoch - 1)
-        #optimizer.param_groups[0]['lr'] = 0.0001
+        optimizer.param_groups[0]['lr'] = 0.0001
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
         print(f"\nstep_Count: {optimizer._step_count}\n")
         #if use_cuda:
@@ -313,7 +313,7 @@ if __name__ == '__main__':
     else:
         ModelClass = Effnet_Landmark
 
-    set_seed(9)
+    set_seed(100)
 
     if args.CUDA_VISIBLE_DEVICES != '-1':
         torch.backends.cudnn.benchmark = True
