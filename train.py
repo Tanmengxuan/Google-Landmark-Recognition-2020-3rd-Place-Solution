@@ -30,7 +30,7 @@ from torch.backends import cudnn
 #import apex
 #from apex import amp
 #from apex.parallel import DistributedDataParallel
-from torch.nn.parallel import DistributedDataParallel
+#from torch.nn.parallel import DistributedDataParallel
 
 from dataset import LandmarkDataset, get_df, get_transforms
 from util import global_average_precision_score, GradualWarmupSchedulerV2
@@ -220,7 +220,8 @@ def main():
         gc.collect()
 
     if use_cuda:
-        model = DistributedDataParallel(model, delay_allreduce=True)
+        #model = DistributedDataParallel(model, delay_allreduce=True)
+        #model = DistributedDataParallel(model)
 
     # lr scheduler
     scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)

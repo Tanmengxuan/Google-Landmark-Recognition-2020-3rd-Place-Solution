@@ -1,5 +1,5 @@
 albumentations==0.4.6
-apex==0.1
-torchvision==0.7.0a0
 warmup_scheduler==0.3.2
-opencv_python==4.4.0.44
+pandas==0.24.2
+numpy==1.18.5
+scikit_learn==0.23.2
