@@ -161,6 +161,7 @@ def main():
     # get adaptive margin
     tmp = np.sqrt(1 / np.sqrt(df['landmark_id'].value_counts().sort_index().values))
     margins = (tmp - tmp.min()) / (tmp.max() - tmp.min()) * 0.45 + 0.05
+    print(f'\nMargins: {margins}\n')
 
     # get augmentations
     transforms_train, transforms_val = get_transforms(args.image_size)
@@ -241,6 +242,7 @@ def main():
             scheduler_warmup.step(epoch - 1) # Hack to control scheduler
         else:
             scheduler_warmup.step(epoch - 1)
+        #optimizer.param_groups[0]['lr'] = 0.0001
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
         print(f"\nstep_Count: {optimizer._step_count}\n")
         #if use_cuda:
@@ -308,7 +310,7 @@ if __name__ == '__main__':
     else:
         ModelClass = Effnet_Landmark
 
-    set_seed(0)
+    set_seed(9)
 
     if args.CUDA_VISIBLE_DEVICES != '-1':
         torch.backends.cudnn.benchmark = True
