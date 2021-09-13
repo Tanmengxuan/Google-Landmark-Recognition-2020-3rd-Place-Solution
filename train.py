@@ -79,6 +79,9 @@ def train_epoch(model, loader, optimizer, criterion):
 
     model.train()
     train_loss = []
+    PREDS_M = []
+    PRODS_M = []
+    TARGETS = []
     bar = tqdm(loader)
     #import pdb; pdb.set_trace()
     for (data, target) in bar:
@@ -89,6 +92,14 @@ def train_epoch(model, loader, optimizer, criterion):
 
         if not args.use_amp:
             logits_m = model(data)
+
+            lmax_m = logits_m.max(1)
+            probs_m = lmax_m.values
+            preds_m = lmax_m.indices
+            PRODS_M.append(probs_m.detach().cpu())
+            PREDS_M.append(preds_m.detach().cpu())
+            TARGETS.append(target.detach().cpu())
+
             loss = criterion(logits_m, target)
             loss.backward()
             optimizer.step()
@@ -105,12 +116,22 @@ def train_epoch(model, loader, optimizer, criterion):
         if use_cuda:
             torch.cuda.synchronize()
 
+
+        acc_inter = (preds_m.detach().cpu().numpy() == target.detach().cpu().numpy()).mean() * 100.
         loss_np = loss.detach().cpu().numpy()
         train_loss.append(loss_np)
         smooth_loss = sum(train_loss[-100:]) / min(len(train_loss), 100)
-        bar.set_description('loss: %.5f, smth: %.5f' % (loss_np, smooth_loss))
+        bar.set_description('loss: %.5f, smth: %.5f, acc: %.5f' % (loss_np, smooth_loss, acc_inter))
 
-    return train_loss
+    PRODS_M = torch.cat(PRODS_M).numpy()
+    PREDS_M = torch.cat(PREDS_M).numpy()
+    TARGETS = torch.cat(TARGETS)
+    acc_m = (PREDS_M == TARGETS.numpy()).mean() * 100.
+    y_true = {idx: target if target >=0 else None for idx, target in enumerate(TARGETS)}
+    y_pred_m = {idx: (pred_cls, conf) for idx, (pred_cls, conf) in enumerate(zip(PREDS_M, PRODS_M))}
+    gap_m = global_average_precision_score(y_true, y_pred_m)
+
+    return train_loss, acc_m, gap_m
 
 def val_epoch(model, valid_loader, criterion, get_output=False):
 
@@ -258,11 +279,11 @@ def main():
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
                                                   shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
 
-        train_loss = train_epoch(model, train_loader, optimizer, criterion)
+        train_loss, train_acc, train_gap = train_epoch(model, train_loader, optimizer, criterion)
         val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
 
         #if args.local_rank == 0:
-        content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, acc_m: {(acc_m):.6f}, gap_m: {(gap_m):.6f}.'
+        content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, train_acc: {(train_acc):.6f}, acc_m: {(acc_m):.6f}, train_gap: {(train_gap):.6f}, gap_m: {(gap_m):.6f}.'
         print(f'\n{content}\n')
         with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
             appender.write(content + '\n')
