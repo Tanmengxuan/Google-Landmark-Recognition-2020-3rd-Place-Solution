@@ -226,18 +226,24 @@ def main():
         if args.train_step==1:
             del state_dict['metric_classify.weight']
             model.load_state_dict(state_dict, strict=False)
+            if 'gap_m_best' in checkpoint:
+                checkpoint_gap_m_best = checkpoint['gap_m_best']
+            if 'gap_m' in checkpoint:
+                checkpoint_gap_m = checkpoint['gap_m']
         else:
             model.load_state_dict(state_dict, strict=True)
-            if args.resume_train:
-                print('\n RESUME TRAIN... \n')
-                if 'optimizer_state_dict' in checkpoint:
-                    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-                if 'epoch' in checkpoint:
-                   args.start_from_epoch = checkpoint['epoch'] + 1
-                if 'gap_m_best' in checkpoint:
-                    checkpoint_gap_m_best = checkpoint['gap_m_best']
-                else:
-                    checkpoint_gap_m_best = 0.3476 #temp
+            if 'gap_m_best' in checkpoint:
+                checkpoint_gap_m_best = checkpoint['gap_m_best']
+            if 'gap_m' in checkpoint:
+                checkpoint_gap_m = checkpoint['gap_m']
+
+        if args.resume_train:
+            print('\n RESUME TRAIN... \n')
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            if 'epoch' in checkpoint:
+               args.start_from_epoch = checkpoint['epoch'] + 1
+
         del checkpoint, state_dict
         torch.cuda.empty_cache()
         import gc
@@ -248,8 +254,8 @@ def main():
         #model = DistributedDataParallel(model)
 
     # lr scheduler
-    scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
-    scheduler_warmup = GradualWarmupSchedulerV2(optimizer, multiplier=10, total_epoch=1, after_scheduler=scheduler_cosine)
+    #scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
+    #scheduler_warmup = GradualWarmupSchedulerV2(optimizer, multiplier=10, total_epoch=1, after_scheduler=scheduler_cosine)
 
     # train & valid loop
     gap_m_max = 0.
@@ -257,18 +263,29 @@ def main():
     gap_m_best = -1
     if len(args.load_from) > 0:
         gap_m_best = checkpoint_gap_m_best
-        print(f" \n Load gap_m_best: {gap_m_best}\n")
+        gap_m = checkpoint_gap_m
+        print(f" \n Load gap_m_best: {gap_m_best}")
+        print(f"  Load gap_m: {gap_m}\n")
 
+    init_lr_ = 0.0001
     for epoch in range(args.start_from_epoch, args.n_epochs+1):
 
         print(time.ctime(), 'Epoch:', epoch)
-        if len(args.load_from) > 0 and epoch == args.start_from_epoch:
-            scheduler_warmup.step(epoch - 1)
-            scheduler_warmup.step(epoch - 1) # Hack to control scheduler
+        #if len(args.load_from) > 0 and epoch == args.start_from_epoch:
+        #    scheduler_warmup.step(epoch - 1)
+        #    scheduler_warmup.step(epoch - 1) # Hack to control scheduler
+        #else:
+        #    scheduler_warmup.step(epoch - 1)
+
+        if epoch == args.start_from_epoch and not args.resume_train:
+            cur_lr = init_lr_
         else:
-            scheduler_warmup.step(epoch - 1)
+            if gap_m < gap_m_best:
+               cur_lr = optimizer.param_groups[0]['lr'] / 2
+        optimizer.param_groups[0]['lr'] = cur_lr
+
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
-        print(f"\nstep_Count: {optimizer._step_count}\n")
+        #print(f"\nstep_Count: {optimizer._step_count}\n")
         if use_cuda:
             train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
             train_sampler.set_epoch(epoch)
