@@ -226,16 +226,16 @@ def main():
         if args.train_step==1:
             del state_dict['metric_classify.weight']
             model.load_state_dict(state_dict, strict=False)
-            if 'gap_m_best' in checkpoint:
-                checkpoint_gap_m_best = checkpoint['gap_m_best']
-            if 'gap_m' in checkpoint:
-                checkpoint_gap_m = checkpoint['gap_m']
+            #if 'gap_m_best' in checkpoint:
+            #    checkpoint_gap_m_best = checkpoint['gap_m_best']
+            #if 'gap_m' in checkpoint:
+            #    checkpoint_gap_m = checkpoint['gap_m']
         else:
             model.load_state_dict(state_dict, strict=True)
-            if 'gap_m_best' in checkpoint:
-                checkpoint_gap_m_best = checkpoint['gap_m_best']
-            if 'gap_m' in checkpoint:
-                checkpoint_gap_m = checkpoint['gap_m']
+            #if 'gap_m_best' in checkpoint:
+            #    checkpoint_gap_m_best = checkpoint['gap_m_best']
+            #if 'gap_m' in checkpoint:
+            #    checkpoint_gap_m = checkpoint['gap_m']
 
         if args.resume_train:
             print('\n RESUME TRAIN... \n')
@@ -261,7 +261,7 @@ def main():
     gap_m_max = 0.
     model_file = os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}.pth')
     gap_m_best = -1
-    if len(args.load_from) > 0:
+    if len(args.load_from) > 0 and args.resume_train:
         gap_m_best = checkpoint_gap_m_best
         gap_m = checkpoint_gap_m
         print(f" \n Load gap_m_best: {gap_m_best}")
