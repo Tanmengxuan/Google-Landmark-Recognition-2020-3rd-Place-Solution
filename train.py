@@ -224,8 +224,9 @@ def main():
         state_dict = checkpoint['model_state_dict']
         state_dict = {k[7:] if k.startswith('module.') else k: state_dict[k] for k in state_dict.keys()}
         if args.train_step==1:
-            del state_dict['metric_classify.weight']
-            model.load_state_dict(state_dict, strict=False)
+            #del state_dict['metric_classify.weight']
+            #model.load_state_dict(state_dict, strict=False)
+            model.load_state_dict(state_dict, strict=True)
             #if 'gap_m_best' in checkpoint:
             #    checkpoint_gap_m_best = checkpoint['gap_m_best']
             #if 'gap_m' in checkpoint:
