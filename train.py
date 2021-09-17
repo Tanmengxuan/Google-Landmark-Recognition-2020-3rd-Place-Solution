@@ -64,6 +64,7 @@ def parse_args():
     parser.add_argument('--resume_train', action='store_true')
     parser.add_argument('--train', action='store_true')
     parser.add_argument('--predict', action='store_true')
+    parser.add_argument('--val_size', type=int, default=15)
     args, _ = parser.parse_known_args()
     return args
 
@@ -192,7 +193,7 @@ def main():
 
     # get train and valid dataset
     df_train = df[df['fold'] != args.fold]
-    df_valid = df[df['fold'] == args.fold].reset_index(drop=True).query("index % 15==0")
+    df_valid = df[df['fold'] == args.fold].reset_index(drop=True).query(f"index % {args.val_size}==0")
 
     dataset_train = LandmarkDataset(df_train, 'train', 'train', transform=transforms_train)
     dataset_valid = LandmarkDataset(df_valid, 'train', 'val', transform=transforms_val)
