@@ -227,6 +227,8 @@ def main():
             #del state_dict['metric_classify.weight']
             #model.load_state_dict(state_dict, strict=False)
             model.load_state_dict(state_dict, strict=True)
+            if 'optimizer_state_dict' in checkpoint:
+                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             #if 'gap_m_best' in checkpoint:
             #    checkpoint_gap_m_best = checkpoint['gap_m_best']
             #if 'gap_m' in checkpoint:
@@ -244,6 +246,10 @@ def main():
                 optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if 'epoch' in checkpoint:
                args.start_from_epoch = checkpoint['epoch'] + 1
+            if 'gap_m_best' in checkpoint:
+                checkpoint_gap_m_best = checkpoint['gap_m_best']
+            if 'gap_m' in checkpoint:
+                checkpoint_gap_m = checkpoint['gap_m']
 
         del checkpoint, state_dict
         torch.cuda.empty_cache()
@@ -283,6 +289,8 @@ def main():
         else:
             if gap_m < gap_m_best:
                cur_lr = optimizer.param_groups[0]['lr'] / 2
+            else:
+               cur_lr = optimizer.param_groups[0]['lr']
         optimizer.param_groups[0]['lr'] = cur_lr
 
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
