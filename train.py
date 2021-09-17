@@ -62,6 +62,8 @@ def parse_args():
     parser.add_argument('--fold', type=int, default=0)
     parser.add_argument('--load-from', type=str, default='')
     parser.add_argument('--resume_train', action='store_true')
+    parser.add_argument('--train', action='store_true')
+    parser.add_argument('--predict', action='store_true')
     args, _ = parser.parse_known_args()
     return args
 
@@ -275,75 +277,75 @@ def main():
         print(f"  Load gap_m: {gap_m}\n")
 
     init_lr_ = 0.0001
-    for epoch in range(args.start_from_epoch, args.n_epochs+1):
+    if args.train:
+        for epoch in range(args.start_from_epoch, args.n_epochs+1):
 
-        print(time.ctime(), 'Epoch:', epoch)
-        #if len(args.load_from) > 0 and epoch == args.start_from_epoch:
-        #    scheduler_warmup.step(epoch - 1)
-        #    scheduler_warmup.step(epoch - 1) # Hack to control scheduler
-        #else:
-        #    scheduler_warmup.step(epoch - 1)
+            print(time.ctime(), 'Epoch:', epoch)
+            #if len(args.load_from) > 0 and epoch == args.start_from_epoch:
+            #    scheduler_warmup.step(epoch - 1)
+            #    scheduler_warmup.step(epoch - 1) # Hack to control scheduler
+            #else:
+            #    scheduler_warmup.step(epoch - 1)
 
-        if epoch == args.start_from_epoch and not args.resume_train:
-            cur_lr = init_lr_
-        else:
-            if gap_m < gap_m_best:
-               cur_lr = optimizer.param_groups[0]['lr'] / 2
+            if epoch == args.start_from_epoch and not args.resume_train:
+                cur_lr = init_lr_
             else:
-               cur_lr = optimizer.param_groups[0]['lr']
-        optimizer.param_groups[0]['lr'] = cur_lr
+                if gap_m < gap_m_best:
+                   cur_lr = optimizer.param_groups[0]['lr'] / 2
+                else:
+                   cur_lr = optimizer.param_groups[0]['lr']
+            optimizer.param_groups[0]['lr'] = cur_lr
 
-        print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
-        #print(f"\nstep_Count: {optimizer._step_count}\n")
-        if use_cuda:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-            train_sampler.set_epoch(epoch)
-        else:
+            print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
+            #print(f"\nstep_Count: {optimizer._step_count}\n")
+            #if use_cuda:
+            #    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+            #    train_sampler.set_epoch(epoch)
+            #else:
+            #    train_sampler = None
             train_sampler = None
-        #train_sampler = None
 
-        train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
-                                                  shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
+            train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
+                                                      shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
 
-        train_loss, train_acc, train_gap = train_epoch(model, train_loader, optimizer, criterion)
-        val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
+            train_loss, train_acc, train_gap = train_epoch(model, train_loader, optimizer, criterion)
+            val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
 
-        #if args.local_rank == 0:
-        content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, train_acc: {(train_acc):.6f}, acc_m: {(acc_m):.6f}, train_gap: {(train_gap):.6f}, gap_m: {(gap_m):.6f}.'
-        print(f'\n{content}\n')
-        with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
-            appender.write(content + '\n')
+            #if args.local_rank == 0:
+            content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, train_acc: {(train_acc):.6f}, acc_m: {(acc_m):.6f}, train_gap: {(train_gap):.6f}, gap_m: {(gap_m):.6f}.'
+            print(f'\n{content}\n')
+            with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
+                appender.write(content + '\n')
 
-        if gap_m > gap_m_best:
-            gap_m_best = gap_m
-            print('\n Saving Best Model...\n')
+            if gap_m > gap_m_best:
+                gap_m_best = gap_m
+                print('\n Saving Best Model...\n')
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'gap_m': gap_m,
+                    'gap_m_best': gap_m_best,
+                }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_best.pth'))
+
+            print('gap_m_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
             torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'gap_m': gap_m,
-                'gap_m_best': gap_m_best,
-            }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_best.pth'))
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'gap_m': gap_m,
+                    'gap_m_best': gap_m_best,
+                    }, model_file)
+            gap_m_max = gap_m
 
-        print('gap_m_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
-        torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'gap_m': gap_m,
-                'gap_m_best': gap_m_best,
-                }, model_file)
-        gap_m_max = gap_m
+            if epoch == args.stop_at_epoch:
+                print(time.ctime(), 'Training Finished!')
+                break
 
-        if epoch == args.stop_at_epoch:
-            print(time.ctime(), 'Training Finished!')
-            break
-
-    #torch.save({
-    #    'epoch': epoch,
-    #    'model_state_dict': model.state_dict(),
-    #    'optimizer_state_dict': optimizer.state_dict(),
-    #}, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_final.pth'))
+    if args.predict:
+        val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
+        content = f'Fold {args.fold}, lr: {optimizer.param_groups[0]["lr"]:.7f}, valid loss: {(val_loss):.5f}, valid_acc: {(acc_m):.6f}, valid_gap: {(gap_m):.6f}.'
+        print(f'\n{content}\n')
 
 
 if __name__ == '__main__':
@@ -366,7 +368,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.benchmark = True
         if use_cuda:
             torch.cuda.set_device(args.local_rank)
-            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            #torch.distributed.init_process_group(backend='nccl', init_method='env://')
         cudnn.benchmark = True
 
     main()
