@@ -62,6 +62,7 @@ def parse_args():
     parser.add_argument('--fold', type=int, default=0)
     parser.add_argument('--load-from', type=str, default='')
     parser.add_argument('--resume_train', action='store_true')
+    parser.add_argument('--frac', type=float, default=0.5)
     args, _ = parser.parse_known_args()
     return args
 
@@ -190,6 +191,7 @@ def main():
 
     # get train and valid dataset
     df_train = df[df['fold'] != args.fold]
+    df_train = df_train.sample(frac=args.frac, random_state=35)
     df_valid = df[df['fold'] == args.fold].reset_index(drop=True).query("index % 15==0")
 
     dataset_train = LandmarkDataset(df_train, 'train', 'train', transform=transforms_train)
@@ -295,12 +297,12 @@ def main():
 
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
         #print(f"\nstep_Count: {optimizer._step_count}\n")
-        if use_cuda:
-            train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
-            train_sampler.set_epoch(epoch)
-        else:
-            train_sampler = None
-        #train_sampler = None
+        #if use_cuda:
+        #    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset_train)
+        #    train_sampler.set_epoch(epoch)
+        #else:
+        #    train_sampler = None
+        train_sampler = None
 
         train_loader = torch.utils.data.DataLoader(dataset_train, batch_size=args.batch_size, num_workers=args.num_workers,
                                                   shuffle=train_sampler is None, sampler=train_sampler, drop_last=True)
@@ -366,7 +368,7 @@ if __name__ == '__main__':
         torch.backends.cudnn.benchmark = True
         if use_cuda:
             torch.cuda.set_device(args.local_rank)
-            torch.distributed.init_process_group(backend='nccl', init_method='env://')
+            #torch.distributed.init_process_group(backend='nccl', init_method='env://')
         cudnn.benchmark = True
 
     main()
