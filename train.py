@@ -263,8 +263,8 @@ def main():
         #model = DistributedDataParallel(model)
 
     # lr scheduler
-    #scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
-    #scheduler_warmup = GradualWarmupSchedulerV2(optimizer, multiplier=10, total_epoch=1, after_scheduler=scheduler_cosine)
+    scheduler_cosine = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, args.n_epochs-1)
+    scheduler_warmup = GradualWarmupSchedulerV2(optimizer, multiplier=10, total_epoch=1, after_scheduler=scheduler_cosine)
 
     # train & valid loop
     gap_m_max = 0.
@@ -285,15 +285,16 @@ def main():
         #    scheduler_warmup.step(epoch - 1) # Hack to control scheduler
         #else:
         #    scheduler_warmup.step(epoch - 1)
+        scheduler_warmup.step(epoch - 1)
 
-        if epoch == args.start_from_epoch and not args.resume_train:
-            cur_lr = init_lr_
-        else:
-            if gap_m < gap_m_best:
-               cur_lr = optimizer.param_groups[0]['lr'] / 2
-            else:
-               cur_lr = optimizer.param_groups[0]['lr']
-        optimizer.param_groups[0]['lr'] = cur_lr
+        #if epoch == args.start_from_epoch and not args.resume_train:
+        #    cur_lr = init_lr_
+        #else:
+        #    if gap_m < gap_m_best:
+        #       cur_lr = optimizer.param_groups[0]['lr'] / 2
+        #    else:
+        #       cur_lr = optimizer.param_groups[0]['lr']
+        #optimizer.param_groups[0]['lr'] = cur_lr
 
         print(f"\nLearning RATE before train: {optimizer.param_groups[0]['lr']}\n")
         #print(f"\nstep_Count: {optimizer._step_count}\n")
