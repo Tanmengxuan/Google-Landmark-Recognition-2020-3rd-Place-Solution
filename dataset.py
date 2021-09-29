@@ -61,16 +61,18 @@ def get_df(kernel_type, data_dir, train_step):
 
     if train_step == 0:
         #df_train = pd.read_csv(os.path.join(data_dir, 'train.csv')).drop(columns=['url'])
-        df_train = pd.read_csv(os.path.join(data_dir, 'train.csv'))
-        df_train_xtra = pd.read_csv(os.path.join(data_dir, 'train_xtra.csv'))
+        #df_train = pd.read_csv(os.path.join(data_dir, 'train.csv'))
+        #df_train_xtra = pd.read_csv(os.path.join(data_dir, 'train_xtra.csv'))
+        df_train = pd.read_csv(os.path.join(data_dir, 'train_classifier.csv'))
     else:
         cls_81313 = df.landmark_id.unique()
         #df_train = pd.read_csv(os.path.join(data_dir, 'train.csv')).drop(columns=['url']).set_index('landmark_id').loc[cls_81313].reset_index()
         df_train = pd.read_csv(os.path.join(data_dir, 'train.csv')).set_index('landmark_id').loc[cls_81313].reset_index()
         
+    #df_train['filepath'] = df_train['id'].apply(lambda x: os.path.join(data_dir, 'train', x[0], x[1], x[2], f'{x}.jpg'))
+    #df_train_xtra['filepath'] = df_train_xtra['id'].apply(lambda x: os.path.join(data_dir, 'train_xtra', x[0], x[0], x[1], x[2], f'{x}.jpg'))
     df_train['filepath'] = df_train['id'].apply(lambda x: os.path.join(data_dir, 'train', x[0], x[1], x[2], f'{x}.jpg'))
-    df_train_xtra['filepath'] = df_train_xtra['id'].apply(lambda x: os.path.join(data_dir, 'train_xtra', x[0], x[0], x[1], x[2], f'{x}.jpg'))
-    df_train = pd.concat([df_train, df_train_xtra], axis=0).reset_index(drop=True)
+    #df_train = pd.concat([df_train, df_train_xtra], axis=0).reset_index(drop=True)
     df = df_train.merge(df, on=['id','landmark_id'], how='left')
 
     landmark_id2idx = {landmark_id: idx for idx, landmark_id in enumerate(sorted(df['landmark_id'].unique()))}

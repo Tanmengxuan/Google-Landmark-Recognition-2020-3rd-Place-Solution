@@ -5,7 +5,7 @@ import os
 import argparse
 
 def main():
-    df_train = pd.read_csv(os.path.join(args.data_dir, 'train_combined.csv'))
+    df_train = pd.read_csv(os.path.join(args.data_dir, 'train_classifier.csv'))
 
     skf = StratifiedKFold(5, shuffle=True, random_state=233)
 

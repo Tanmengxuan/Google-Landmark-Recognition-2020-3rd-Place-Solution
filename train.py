@@ -16,7 +16,7 @@ import albumentations
 import numpy as np
 import pandas as pd
 from tqdm import tqdm as tqdm
-from sklearn.metrics import cohen_kappa_score, confusion_matrix
+from sklearn.metrics import cohen_kappa_score, confusion_matrix, f1_score
 
 import torch
 import torch.nn as nn
@@ -122,14 +122,16 @@ def train_epoch(model, loader, optimizer, criterion):
         train_loss.append(loss_np)
         smooth_loss = sum(train_loss[-100:]) / min(len(train_loss), 100)
         bar.set_description('loss: %.5f, smth: %.5f, acc: %.5f' % (loss_np, smooth_loss, acc_inter))
-
+    
+    #import pdb; pdb.set_trace()
     PRODS_M = torch.cat(PRODS_M).numpy()
     PREDS_M = torch.cat(PREDS_M).numpy()
     TARGETS = torch.cat(TARGETS)
     acc_m = (PREDS_M == TARGETS.numpy()).mean() * 100.
-    y_true = {idx: target if target >=0 else None for idx, target in enumerate(TARGETS)}
-    y_pred_m = {idx: (pred_cls, conf) for idx, (pred_cls, conf) in enumerate(zip(PREDS_M, PRODS_M))}
-    gap_m = global_average_precision_score(y_true, y_pred_m)
+    #y_true = {idx: target if target >=0 else None for idx, target in enumerate(TARGETS)}
+    #y_pred_m = {idx: (pred_cls, conf) for idx, (pred_cls, conf) in enumerate(zip(PREDS_M, PRODS_M))}
+    #gap_m = global_average_precision_score(y_true, y_pred_m)
+    gap_m = f1_score(TARGETS, PREDS_M)
 
     return train_loss, acc_m, gap_m
 
@@ -164,13 +166,15 @@ def val_epoch(model, valid_loader, criterion, get_output=False):
         PREDS_M = torch.cat(PREDS_M).numpy()
         TARGETS = torch.cat(TARGETS)
 
+    #import pdb; pdb.set_trace()
     if get_output:
         return LOGITS_M
     else:
         acc_m = (PREDS_M == TARGETS.numpy()).mean() * 100.
-        y_true = {idx: target if target >=0 else None for idx, target in enumerate(TARGETS)}
-        y_pred_m = {idx: (pred_cls, conf) for idx, (pred_cls, conf) in enumerate(zip(PREDS_M, PRODS_M))}
-        gap_m = global_average_precision_score(y_true, y_pred_m)
+        #y_true = {idx: target if target >=0 else None for idx, target in enumerate(TARGETS)}
+        #y_pred_m = {idx: (pred_cls, conf) for idx, (pred_cls, conf) in enumerate(zip(PREDS_M, PRODS_M))}
+        #gap_m = global_average_precision_score(y_true, y_pred_m)
+        gap_m = f1_score(TARGETS.numpy(), PREDS_M)
         return val_loss, acc_m, gap_m
 
 
@@ -309,7 +313,7 @@ def main():
         val_loss, acc_m, gap_m = val_epoch(model, valid_loader, criterion)
 
         #if args.local_rank == 0:
-        content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, train_acc: {(train_acc):.6f}, acc_m: {(acc_m):.6f}, train_gap: {(train_gap):.6f}, gap_m: {(gap_m):.6f}.'
+        content = time.ctime() + ' ' + f'Fold {args.fold}, Epoch {epoch}, lr: {optimizer.param_groups[0]["lr"]:.7f}, train loss: {np.mean(train_loss):.5f}, valid loss: {(val_loss):.5f}, train_acc: {(train_acc):.6f}, valid_acc: {(acc_m):.6f}, train_f1: {(train_gap):.6f}, valid_f1: {(gap_m):.6f}.'
         print(f'\n{content}\n')
         with open(os.path.join(args.log_dir, f'{args.kernel_type}.txt'), 'a') as appender:
             appender.write(content + '\n')
@@ -325,7 +329,7 @@ def main():
                 'gap_m_best': gap_m_best,
             }, os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}_best.pth'))
 
-        print('gap_m_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
+        print('f1_max ({:.6f} --> {:.6f}). Saving model ...'.format(gap_m_max, gap_m))
         torch.save({
                 'epoch': epoch,
                 'model_state_dict': model.state_dict(),
