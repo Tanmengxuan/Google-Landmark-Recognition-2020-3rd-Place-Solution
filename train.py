@@ -238,7 +238,9 @@ def main():
             #if 'gap_m' in checkpoint:
             #    checkpoint_gap_m = checkpoint['gap_m']
         else:
-            model.load_state_dict(state_dict, strict=True)
+            del state_dict['metric_classify.weight']
+            model.load_state_dict(state_dict, strict=False)
+            #model.load_state_dict(state_dict, strict=True)
             #if 'gap_m_best' in checkpoint:
             #    checkpoint_gap_m_best = checkpoint['gap_m_best']
             #if 'gap_m' in checkpoint:
@@ -246,14 +248,14 @@ def main():
 
         if args.resume_train:
             print('\n RESUME TRAIN... \n')
-            if 'optimizer_state_dict' in checkpoint:
-                optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            #if 'optimizer_state_dict' in checkpoint:
+            #    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             if 'epoch' in checkpoint:
                args.start_from_epoch = checkpoint['epoch'] + 1
-            if 'gap_m_best' in checkpoint:
-                checkpoint_gap_m_best = checkpoint['gap_m_best']
-            if 'gap_m' in checkpoint:
-                checkpoint_gap_m = checkpoint['gap_m']
+            #if 'gap_m_best' in checkpoint:
+            #    checkpoint_gap_m_best = checkpoint['gap_m_best']
+            #if 'gap_m' in checkpoint:
+            #    checkpoint_gap_m = checkpoint['gap_m']
 
         del checkpoint, state_dict
         torch.cuda.empty_cache()
@@ -271,12 +273,13 @@ def main():
     # train & valid loop
     gap_m_max = 0.
     model_file = os.path.join(args.model_dir, f'{args.kernel_type}_fold{args.fold}.pth')
+    gap_m = 0.
     gap_m_best = -1
-    if len(args.load_from) > 0 and args.resume_train:
-        gap_m_best = checkpoint_gap_m_best
-        gap_m = checkpoint_gap_m
-        print(f" \n Load gap_m_best: {gap_m_best}")
-        print(f"  Load gap_m: {gap_m}\n")
+    #if len(args.load_from) > 0 and args.resume_train:
+    #    gap_m_best = checkpoint_gap_m_best
+    #    gap_m = checkpoint_gap_m
+    #    print(f" \n Load gap_m_best: {gap_m_best}")
+    #    print(f"  Load gap_m: {gap_m}\n")
 
     init_lr_ = 0.0001
     for epoch in range(args.start_from_epoch, args.n_epochs+1):
@@ -291,7 +294,7 @@ def main():
         if epoch == args.start_from_epoch and not args.resume_train:
             cur_lr = init_lr_
         else:
-            if gap_m < gap_m_best:
+            if gap_m <= gap_m_best:
                cur_lr = optimizer.param_groups[0]['lr'] / 2
             else:
                cur_lr = optimizer.param_groups[0]['lr']
